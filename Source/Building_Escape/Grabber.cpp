@@ -1,7 +1,10 @@
 // Copyright Davud
-
-
+#include "DrawDebugHelpers.h"
+#include "Engine/World.h"
+#include "GameFramework/PlayerController.h"
 #include "Grabber.h"
+
+#define OUT
 
 // Sets default values for this component's properties
 UGrabber::UGrabber()
@@ -19,8 +22,13 @@ void UGrabber::BeginPlay()
 {
 	Super::BeginPlay();
 
-	UE_LOG(LogTemp, Warning, TEXT("Grabber, reporting for duty"));
-	
+	// Checking for Physics Handle Component
+	PhysicsHandle = GetOwner()->FindComponentByClass<UPhysicsHandleComponent>();
+
+	if(!PhysicsHandle) 
+	{
+		UE_LOG(LogTemp, Error, TEXT("No physics handle component found on %s"), *GetOwner()->GetName())
+	}
 }
 
 
@@ -28,7 +36,50 @@ void UGrabber::BeginPlay()
 void UGrabber::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+	FVector PlayerViewPointLocation;
+	FRotator PlayerViewPointRotation;
 
-	// ...
+	GetWorld()->GetFirstPlayerController()->GetPlayerViewPoint(
+		OUT PlayerViewPointLocation, 
+		OUT PlayerViewPointRotation
+	);
+
+	// Draw a line from player showing the reach
+	FVector LineTraceEnd = PlayerViewPointLocation + PlayerViewPointRotation.Vector() * Reach;
+
+	DrawDebugLine(
+		GetWorld(),
+		PlayerViewPointLocation,
+		LineTraceEnd,
+		FColor(0, 255, 0),
+		false,
+		0.f,
+		0,
+		5.f
+	);
+
+	// Ray-cast out to a certain distance (Reach)
+	FHitResult Hit;
+
+	FCollisionQueryParams TraceParams(
+		FName(TEXT("")), 
+		false, 
+		GetOwner()
+	);
+
+	GetWorld()->LineTraceSingleByObjectType(
+		OUT Hit,
+		PlayerViewPointLocation,
+		LineTraceEnd,
+		FCollisionObjectQueryParams(ECollisionChannel::ECC_PhysicsBody),
+		TraceParams
+	);
+	
+	AActor* ActorHit = Hit.GetActor();
+
+	if(ActorHit) 
+	{
+		UE_LOG(LogTemp, Display, TEXT("Line trace has hit: %s"), *(ActorHit->GetName()));
+	}
 }
 
